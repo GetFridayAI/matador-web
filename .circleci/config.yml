@@ -1,31 +1,95 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
-jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
+executors:
+  node_executor:
     docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+      - image: cimg/node:22.16.0
+    working_directory: ~/repo
 
-    # Add steps to the job
-    # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
+# Reusable step for dependency caching
+commands:
+  restore_node_cache:
     steps:
-      # Checkout the code as the first step.
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+      - restore_cache:
+          name: Restore node_modules cache
+          keys:
+            - node-modules-{{ checksum "package-lock.json" }}
+            - node-modules-
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
+  save_node_cache:
+    steps:
+      - save_cache:
+          name: Save node_modules cache
+          paths:
+            - node_modules
+          key: node-modules-{{ checksum "package-lock.json" }}
+
+jobs:
+  checkout_code:
+    executor: node_executor
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  build_app:
+    executor: node_executor
+    steps:
+      - attach_workspace:
+          at: .
+      - save_node_cache
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Build
+          command: npm run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - build
+
+  run_tests:
+    executor: node_executor
+    steps:
+      - attach_workspace:
+          at: .
+      - restore_node_cache
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Run Jest tests
+          command: npm test -- --ci --coverage
+
+  release_app:
+    executor: node_executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Release
+          command: |
+            echo "Releasing build..."
+            # e.g., npm publish, gh release, or deploy script
+
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  version: 2
+  matador-web-ui-ci-pipeline:
     jobs:
-      - say-hello
+      - checkout_code
+      - build_app:
+          requires:
+            - checkout_code
+      - run_tests:
+          requires:
+            - checkout_code
+      - release_app:
+          requires:
+            - build_app
+            - run_tests
+          filters:
+            branches:
+              only: main
