@@ -1,0 +1,27 @@
+@import "themes.less";
+
+.card-item {
+  width: 320px;
+}
+
+.card-item-header {
+  height: 180px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px @fog;
+
+  &.mastercard {
+    background-image: linear-gradient(to right, #B91C1C, #DC2626, #F97316);
+  }
+
+  &.visa {
+    background-image: linear-gradient(to right, #1E40AF, #2563EB, #3B82F6);
+  }
+
+  &.amex {
+    background-image: linear-gradient(to right, #1F2937, #374151, #4B5563);
+  }
+
+  &.rupay {
+    background-image: linear-gradient(to right, #B91C1C, #DC2626, #F97316);
+  }
+}
